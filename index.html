@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#0c1220" />
+    <title>BrickBreaker — 8×8 Strategic Block Puzzle</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <!-- Main Play Stage (Grid + Bottom Piece Tray) -->
+      <main class="play-stage" aria-label="Game play area">
+        <header class="stage-header">
+          <div class="brand-group">
+            <h1 class="game-title">BRICKBREAKER</h1>
+            <div class="mode-pills" role="group" aria-label="Game mode">
+              <button
+                type="button"
+                class="mode-pill is-active"
+                data-mode="classic"
+                aria-pressed="true"
+              >
+                Classic
+              </button>
+              <button
+                type="button"
+                class="mode-pill is-locked"
+                data-mode="adventure"
+                disabled
+                title="Adventure Mode with pre-filled obstacles & gem objectives — Coming Soon"
+              >
+                Adventure <span class="pill-tag">Soon</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="header-actions">
+            <button
+              type="button"
+              id="btn-sound"
+              class="icon-btn"
+              aria-label="Toggle sound"
+              title="Toggle sound effects"
+            >
+              <span class="icon-sound-on" aria-hidden="true">🔊</span>
+              <span class="icon-sound-off" aria-hidden="true" hidden>🔇</span>
+            </button>
+            <button
+              type="button"
+              id="btn-restart"
+              class="icon-btn"
+              aria-label="New game"
+              title="Start a new run"
+            >
+              ↻
+            </button>
+          </div>
+        </header>
+
+        <!-- 8x8 Board Container -->
+        <section class="board-section" aria-label="8 by 8 puzzle board">
+          <div class="board-frame" id="board-frame">
+            <div
+              id="game-board"
+              class="game-board"
+              role="grid"
+              aria-label="8 by 8 block grid"
+            ></div>
+          </div>
+        </section>
+
+        <!-- Bottom 3-Piece Batch Tray -->
+        <section class="tray-section" aria-label="Available pieces">
+          <div class="tray-meta">
+            <span class="tray-hint" id="tray-hint">
+              Drag any piece onto the 8×8 grid — place all 3 for a new batch
+            </span>
+            <div class="batch-dots" id="batch-dots" aria-label="Pieces remaining in batch">
+              <span class="batch-dot"></span>
+              <span class="batch-dot"></span>
+              <span class="batch-dot"></span>
+            </div>
+          </div>
+          <div id="piece-tray" class="piece-tray" role="list"></div>
+        </section>
+      </main>
+
+      <!-- Small Vertical Panel on the Right Side (Scoring Box + Sparse Future Area) -->
+      <aside class="side-panel" aria-label="Player progress">
+        <div class="scoring-box" id="scoring-box">
+          <div class="stat-block stat-score">
+            <span class="stat-label">SCORE</span>
+            <span class="stat-value" id="hud-score">0</span>
+          </div>
+
+          <div class="stat-row">
+            <div class="stat-mini">
+              <span class="stat-label">BEST</span>
+              <span class="stat-mini-value" id="hud-best">0</span>
+            </div>
+            <div class="stat-mini">
+              <span class="stat-label">LEVEL</span>
+              <span class="stat-mini-value stat-level-value" id="hud-level">1</span>
+            </div>
+          </div>
+
+          <div class="level-progress-block">
+            <div class="level-progress-header">
+              <span class="stat-label">LINES</span>
+              <span class="level-progress-text" id="hud-lines-progress">0 / 100</span>
+            </div>
+            <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="hud-level-bar-wrap">
+              <div class="progress-fill" id="hud-level-bar"></div>
+            </div>
+          </div>
+
+          <div class="combo-card" id="hud-combo-card">
+            <div class="combo-top">
+              <span class="stat-label">COMBO</span>
+              <span class="combo-multiplier" id="hud-multiplier">×1</span>
+            </div>
+            <div class="combo-bottom">
+              <span class="combo-streak" id="hud-combo-streak">0</span>
+              <span class="combo-round-pill" id="hud-round-status">Clear 1 line this round</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Intentionally sparse reserved space for future game progress & Adventure Mode objectives -->
+        <div class="side-panel-spacer" aria-hidden="true"></div>
+      </aside>
+    </div>
+
+    <!-- Full-Viewport Canvas for Scaled Explosions, Screen-Wide Lightning, & Floating Score Popups -->
+    <canvas id="fx-canvas" class="fx-canvas" aria-hidden="true"></canvas>
+
+    <!-- Floating Dragged Piece Layer -->
+    <div id="drag-layer" class="drag-layer" aria-hidden="true"></div>
+
+    <!-- Level Up Toast Banner -->
+    <div id="level-banner" class="level-banner" aria-live="polite" hidden>
+      <span class="level-banner-kicker">LEVEL UP</span>
+      <span class="level-banner-title" id="level-banner-title">LEVEL 2</span>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameover-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="gameover-title" hidden>
+      <div class="modal-card">
+        <div class="modal-badge">NO MOVES LEFT</div>
+        <h2 id="gameover-title" class="modal-title">Game Over</h2>
+        <p class="modal-subtitle" id="gameover-subtitle">
+          None of the remaining pieces can fit on the board.
+        </p>
+
+        <div class="modal-stats">
+          <div class="modal-stat">
+            <span class="stat-label">FINAL SCORE</span>
+            <span class="modal-stat-value" id="modal-score">0</span>
+          </div>
+          <div class="modal-stat">
+            <span class="stat-label">BEST SCORE</span>
+            <span class="modal-stat-value" id="modal-best">0</span>
+          </div>
+          <div class="modal-stat">
+            <span class="stat-label">LEVEL</span>
+            <span class="modal-stat-value" id="modal-level">1</span>
+          </div>
+          <div class="modal-stat">
+            <span class="stat-label">LINES CLEARED</span>
+            <span class="modal-stat-value" id="modal-lines">0</span>
+          </div>
+        </div>
+
+        <button type="button" id="btn-play-again" class="primary-btn">
+          Play Again
+        </button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
